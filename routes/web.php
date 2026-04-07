@@ -1,72 +1,76 @@
 <?php
 
+declare(strict_types=1);
+
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisteredUserController;
-use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PagesController;
-use Illuminate\Support\Facades\Auth;
+use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
 /*
-|--------------------------------------------------------------------------|
-| Web Routes                                                                 |
-|--------------------------------------------------------------------------|
-| Here is where you can register web routes for your application. These    |
-| routes are loaded by the RouteServiceProvider and all of them will be     |
-| assigned to the "web" middleware group. Make something great!             |
-|--------------------------------------------------------------------------|
+|--------------------------------------------------------------------------
+| Web Routes
+|--------------------------------------------------------------------------
+| Register web routes for your application. These routes are loaded by
+| the RouteServiceProvider and assigned to the "web" middleware group.
+|--------------------------------------------------------------------------
 */
 
-// Auth Routes
+// Guest Routes
 Route::get('/login', [AuthenticatedSessionController::class, 'login'])->name('login');
-Route::get('/register', [RegisteredUserController::class, 'create'])->name('register'); // Corrected to 'create' instead of 'store'
-Route::get('/forgetPass', [PasswordResetLinkController::class, 'create'])->name('password.forget');
+Route::get('/register', [RegisteredUserController::class, 'create'])->name('register');
+Route::get('/forgot-password', [PasswordResetLinkController::class, 'create'])->name('password.forget');
+Route::post('/reset-password', [NewPasswordController::class, 'store'])->name('createNewPassword');
+Route::get('/reset-password/{token}', [NewPasswordController::class, 'create'])->name('newPasswordReset');
+
+// Public Home Page
 Route::get('/', [PagesController::class, 'home'])->name('home');
-Route::post('/createNewPassword', [NewPasswordController::class, 'store'])->name('createNewPassword');
 
-// Password Reset Routes
-Route::get('/newPasswordReset/{token}', [NewPasswordController::class, 'create'])->name('newPasswordReset');
-Route::post('/createNewPassword', [NewPasswordController::class, 'store'])->name('createNewPassword');
-
-// Seller & Admin Routes - Middleware: Auth + User Is Admin
+// Admin Routes (Broker/Admin user only)
 Route::middleware(['auth', 'userIsAdmin'])->group(function () {
     Route::get('/seller', \App\Http\Livewire\Sales\Show::class)->name('sales.show');
     Route::get('/message', \App\Http\Livewire\Message\Show::class)->name('message.show');
 });
 
-// Authenticated Routes
+// Authenticated User Routes
 Route::middleware(['auth'])->group(function () {
-
-    // General Pages
-    Route::get('/', [PagesController::class, 'home'])->name('home');
-    Route::get('/Profileinstellungen', [ProfileController::class, 'edit'])->name('profile');
+    // Profile & Settings
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::delete('/ProfileDestroy', [ProfileController::class, 'destroy'])->name('ProfileDestroy');
-    Route::put('/ProfileUpdate', [ProfileController::class, 'ProfileUpdate'])->name('ProfileUpdate');
-    Route::put('/updatePassword', [ProfileController::class, 'updatePassword'])->name('updatePassword');
-    Route::get('/meine-auszahlungen', [PagesController::class, 'payoffs'])->name('payoffs');
-    Route::get('/verkaeufer', [PagesController::class, 'showSeller'])->name('seller');
-    Route::get('/approval', [ProfileController::class, 'UserApproval'])->name('approval');
-    Route::get('/meine-tickets', \App\Http\Livewire\Tickets\Show::class)->name('tickets.show');
-    Route::get('/ticketsCreate', \App\Http\Livewire\Tickets\Create::class)->name('ticketsCreate');
-    Route::get('/einstellungen', [PagesController::class, 'settings'])->name('settings');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('ProfileDestroy');
+    Route::put('/profile', [ProfileController::class, 'ProfileUpdate'])->name('ProfileUpdate');
+    Route::put('/password', [ProfileController::class, 'updatePassword'])->name('updatePassword');
 
-    // Dynamic Pages
-    Route::get('/get-unread-conversations-count', \App\Http\Livewire\Message\Show::class)->name('getUnreadConversationsCount');
-    Route::get('/undertest', \App\Http\Livewire\Sales\Undertest::class)->name('sales.underTest');
-    Route::get('/send', \App\Http\Livewire\Sales\Send::class)->name('sales.send');
-    Route::get('/sent', \App\Http\Livewire\Sales\Sent::class)->name('sales.sent');
-    Route::get('/paid', \App\Http\Livewire\Sales\Paid::class)->name('sales.paid');
-    Route::get('/selleraccount', \App\Http\Livewire\Auth\Settings::class)->name('auth.settings');
-    Route::get('/address', \App\Http\Livewire\Auth\Address::class)->name('auth.address');
-    Route::get('/accountinfo', \App\Http\Livewire\Auth\Accountinfo::class)->name('auth.accountinfo');
-    Route::get('/notifications', \App\Http\Livewire\Auth\Notifications::class)->name('auth.notifications');
-    Route::get('/imitate-user/{userID}', [PagesController::class, 'imitateUser'])->name('imitateUser.access');
+    // Dashboard & Main Pages
+    Route::get('/tickets', \App\Http\Livewire\Tickets\Show::class)->name('tickets.show');
+    Route::get('/tickets/create', \App\Http\Livewire\Tickets\Create::class)->name('ticketsCreate');
     Route::get('/payoffs', \App\Http\Livewire\Payoffs\Show::class)->name('payoffs.show');
-    Route::get('/payoffsDetailsById/{getDetails}', \App\Http\Livewire\Payoffs\Show::class)->name('livewire.payoffs.detail');
+    Route::get('/payoffs/{id}', \App\Http\Livewire\Payoffs\Show::class)->name('livewire.payoffs.detail');
+
+    // Seller Management (Admin)
+    Route::get('/sellers', [PagesController::class, 'showSeller'])->name('seller');
+    Route::get('/approval', [ProfileController::class, 'UserApproval'])->name('approval');
+    Route::get('/imitate-user/{userID}', [PagesController::class, 'imitateUser'])->name('imitateUser.access');
+
+    // Messages
+    Route::get('/messages', \App\Http\Livewire\Message\Show::class)->name('message.show');
+    Route::get('/unread-count', \App\Http\Livewire\Message\Show::class)->name('getUnreadConversationsCount');
+
+    // Sales Management
+    Route::get('/sales/reviewing', \App\Http\Livewire\Sales\Undertest::class)->name('sales.underTest');
+    Route::get('/sales/pending', \App\Http\Livewire\Sales\Send::class)->name('sales.send');
+    Route::get('/sales/sent', \App\Http\Livewire\Sales\Sent::class)->name('sales.sent');
+    Route::get('/sales/paid', \App\Http\Livewire\Sales\Paid::class)->name('sales.paid');
+
+    // User Settings
+    Route::get('/settings', [PagesController::class, 'settings'])->name('settings');
+    Route::get('/settings/account', \App\Http\Livewire\Auth\Settings::class)->name('auth.settings');
+    Route::get('/settings/address', \App\Http\Livewire\Auth\Address::class)->name('auth.address');
+    Route::get('/settings/bank-info', \App\Http\Livewire\Auth\Accountinfo::class)->name('auth.accountinfo');
+    Route::get('/settings/notifications', \App\Http\Livewire\Auth\Notifications::class)->name('auth.notifications');
 });
 
-// Auth Routes (for login, registration, etc.)
+// Authentication Routes
 require __DIR__ . '/auth.php';
